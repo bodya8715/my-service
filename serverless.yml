@@ -1,0 +1,103 @@
+service: my-service
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+
+resources:
+  Resources:
+    CreateTestCFPolicy:
+      Type: 'AWS::IAM::ManagedPolicy'
+      Properties:
+        PolicyDocument:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: Allow
+              Action: "sqs:DeleteMessage"
+              Resource: !Join
+                - ""
+                - - 'arn:aws:sqs:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':'
+                  - !GetAtt CreateTestCFQueue.QueueName
+            - Effect: Allow
+              Action: 'sqs:GetQueueAttributes'
+              Resource: !Join
+                - ""
+                - - 'arn:aws:sqs:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':'
+                  - !GetAtt CreateTestCFQueue.QueueName
+            - Effect: Allow
+              Action: 'sqs:ReceiveMessage'
+              Resource: !Join
+                - ""
+                - - 'arn:aws:sqs:'
+                  - !Ref 'AWS::Region'
+                  - ':'
+                  - !Ref 'AWS::AccountId'
+                  - ':'
+                  - !GetAtt CreateTestCFQueue.QueueName
+    CreateTestCFQueue:
+      Type: AWS::SQS::Queue
+      Properties:
+        FifoQueue: true
+        RedrivePolicy:
+          deadLetterTargetArn: !GetAtt MyDeadLetterQueue.Arn
+          maxReceiveCount: 5
+    MyDeadLetterQueue: 
+      Type: AWS::SQS::Queue
+      Properties:
+        FifoQueue: true
+        QueueName: Test_dead_letter_queue.fifo
+    MyCFLambda:
+      Type: AWS::Lambda::Function
+      Properties:
+        Runtime: nodejs12.x
+        Role: arn:aws:iam::159757278796:role/AdministratorRoleTest
+        Handler: index.handler
+        Code:
+          S3Bucket: bodya8715
+          S3Key: my-service.zip 
+        Description: Invoke a function during stack creation.
+        TracingConfig:
+          Mode: Active
+    LambdaPermission:
+      Type: AWS::Lambda::Permission
+      Properties:
+        Action: lambda:invokeFunction
+        FunctionName: !GetAtt MyCFLambda.Arn
+        Principal: apigateway.amazonaws.com
+        SourceArn: !Join
+          - ""
+          - - "arn:aws:execute-api:"
+            - !Ref "AWS::Region"
+            - ":"
+            - !Ref "AWS::AccountId"
+            - ":"
+            - !Ref "MyApiGatewayCF"
+            - "/*"
+    MyApiGatewayCF:
+      Type: AWS::ApiGatewayV2::Api
+      Properties:
+        Name: Lambda Proxy
+        Description: Lambda proxy using quick create
+        ProtocolType: HTTP
+        Target: !Join
+          - ""
+          - - "arn:aws:apigateway:"
+            - !Ref "AWS::Region"
+            - ":"
+            - "lambda:path/2015-03-31/functions/arn:aws:lambda"
+            - ":"
+            - !Ref "AWS::Region"
+            - ":"
+            - !Ref "AWS::AccountId"
+            - ":function:"
+            - !Ref MyCFLambda
+            - /invocations

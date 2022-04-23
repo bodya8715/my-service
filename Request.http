@@ -1,0 +1,6 @@
+POST https://9ayr5dzes4.execute-api.us-east-1.amazonaws.com
+Content-Type: application/json
+
+{
+    "message_body": "message"
+}
