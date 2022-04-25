@@ -46,6 +46,7 @@ resources:
     CreateTestCFQueue:
       Type: AWS::SQS::Queue
       Properties:
+        QueueName: Test_letter_queue.fifo
         FifoQueue: true
         RedrivePolicy:
           deadLetterTargetArn: !GetAtt MyDeadLetterQueue.Arn
@@ -60,7 +61,7 @@ resources:
       Properties:
         Runtime: nodejs12.x
         Role: arn:aws:iam::159757278796:role/AdministratorRoleTest
-        Handler: index.handler
+        Handler: handler.message
         Code:
           S3Bucket: bodya8715
           S3Key: my-service.zip 
