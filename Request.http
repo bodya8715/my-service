@@ -1,6 +1,1 @@
-POST https://0bw6b77me2.execute-api.us-east-1.amazonaws.com
-Content-Type: application/json
-
-{
-    "message_body": "message"
-}
+GET https://lvxtpwwo85.execute-api.us-east-1.amazonaws.com/retry

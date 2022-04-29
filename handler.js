@@ -1,45 +1,47 @@
 let { SQSClient, SendMessageCommand, ReceiveMessageCommand, DeleteMessageCommand } = require('@aws-sdk/client-sqs');
 
-exports.message = async (event) => {
-  let sqs = "https://sqs.us-east-1.amazonaws.com/159757278796/Test_letter_queue.fifo";
-  let dlq = "https://sqs.us-east-1.amazonaws.com/159757278796/Test_dead_letter_queue.fifo";
-   
+module.exports.error = async (event) => {
+  if(Math.random() > 0.5) {
+    return {statusCode: 200, body: "Hello"};
+  } else {
+    throw new Error('Error');
+  }
+};
+
+module.exports.retry = async (event) => {
+  let sqs = "https://sqs.us-east-1.amazonaws.com/159757278796/Test.fifo";
+  let dlq = "https://sqs.us-east-1.amazonaws.com/159757278796/TestDead.fifo";
+     
   let sqsClient = new SQSClient({region: 'us-east-1'});
-  
-  let random = Math.floor(Math.random() * (20 - 1)) + 1;
-  
+
   const receiveParams = {
     AttributeNames: ["SentTimestamp"],
-    MaxNumberOfMessages: 1,
+    MaxNumberOfMessages: 10,
     MessageAttributeNames: ["All"],
     QueueUrl: dlq,
     VisibilityTimeout: 30,
     WaitTimeSeconds: 0
   };
-  
+
   try {
     const receiveData = await sqsClient.send(new ReceiveMessageCommand(receiveParams));
-    //MessageId
-    //MD5OfBody
-    //Body
-    //Attributes
-    //MD5OfMessageAttributes
-    //MessageAttributes
-    if (receiveData.Messages[0]) {
-        let message = receiveData.Messages[0].Body;
-        
+    if(receiveData.Messages) {
+      for(let i = 0; i < receiveData.Messages.length; i++) {
+        let random = Math.floor(Math.random() * (20 - 1)) + 1;
+        let message = receiveData.Messages[i].Body;
+
         const deleteParams = {
           QueueUrl: dlq,
-          ReceiptHandle: receiveData.Messages[0].ReceiptHandle,
+          ReceiptHandle: receiveData.Messages[i].ReceiptHandle,
         };
-         
+
         const deleteMessage = await sqsClient.send(new DeleteMessageCommand(deleteParams));
-        
+
         let sendParams = {
           MessageAttributes: {
             Title: {
               DataType: "String",
-              StringValue: "The Whistler",
+                StringValue: "The Whistler",
             },
             Author: {
               DataType: "String",
@@ -55,15 +57,14 @@ exports.message = async (event) => {
           MessageGroupId: random,
           QueueUrl: sqs,
         };
-        
-        const sendData = await sqsClient.send(new SendMessageCommand(sendParams));
-         
-        return JSON.stringify({statusCode: 200, body: message});
-      
-     } else {
+
+        const sendData = await sqsClient.send(new SendMessageCommand(sendParams)); 
+      }
+      return JSON.stringify({statusCode: 200, body: "Success"});
+    } else {
       return JSON.stringify({statusCode: 400, body:"No messages has been found"});
-     }
-   } catch (err) {
+    }
+  } catch (err) {
     return JSON.stringify({err});
-   }
+  }
 };
